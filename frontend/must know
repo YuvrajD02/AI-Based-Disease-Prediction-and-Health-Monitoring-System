@@ -1,0 +1,13 @@
+to start backend 
+npm run start
+
+to start frontend 
+npm run dev
+
+
+database setting =
+amankumarofficial726_db_user = username
+Aman@843101=password
+Aman%40843101 bcoz @ =  %40
+connection url= mongodb+srv://amankumarofficial726_db_user:<db_password>@healthcluster.3iotarl.mongodb.net/?appName=healthcluster
+

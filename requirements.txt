@@ -1,0 +1,6 @@
+# Python dependencies for the AI model service
+flask
+flask-cors
+numpy
+pandas
+scikit-learn
