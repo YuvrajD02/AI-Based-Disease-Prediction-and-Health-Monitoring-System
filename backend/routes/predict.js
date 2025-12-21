@@ -35,8 +35,36 @@ router.post("/", async (req, res) => {
 
     console.log("🔍 Received health data:", healthData);
 
+    // Transform healthData into symptoms array format expected by the model
+    const symptoms = [];
+    const symptomMapping = {
+      'Body ache': 'body_aches',
+      'Cough': 'cough',
+      'Fatigue': 'fatigue',
+      'Fever': 'fever',
+      'Headache': 'headache',
+      'Runny nose': 'runny_nose',
+      'Shortness of breath': 'shortness_of_breath',
+      'Sore throat': 'sore_throat'
+    };
+
+    // Extract symptoms from healthData (where value is 1)
+    for (const [key, mappedSymptom] of Object.entries(symptomMapping)) {
+      if (healthData[key] === 1) {
+        symptoms.push(mappedSymptom);
+      }
+    }
+
+    console.log("🔄 Transformed symptoms:", symptoms);
+
+    if (symptoms.length === 0) {
+      return res.status(400).json({
+        message: "No symptoms detected in health data"
+      });
+    }
+
     const response = await axios.post(process.env.AI_SERVICE_URL, {
-      healthData,
+      symptoms,
     }, {
       timeout: 10000, // 10 second timeout
       headers: {

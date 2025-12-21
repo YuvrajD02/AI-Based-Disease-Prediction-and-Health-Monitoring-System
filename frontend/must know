@@ -4,6 +4,9 @@ npm run start
 to start frontend 
 npm run dev
 
+to start ml model 
+python model_server.py
+
 
 database setting =
 amankumarofficial726_db_user = username
