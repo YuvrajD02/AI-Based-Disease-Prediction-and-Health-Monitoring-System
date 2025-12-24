@@ -16,10 +16,11 @@ const app = express();
 
 // Middlewares
 app.use(cors({
- origin: [
+  origin: [
     "http://localhost:5173",
-    "https://healthchecka.netlify.app"
-  ], 
+    "http://localhost:3000",
+    process.env.FRONTEND_URL || "https://healthchecka.netlify.app"
+  ],
   // React (Vite) frontend URL
   credentials: true
 }));

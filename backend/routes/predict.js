@@ -3,6 +3,11 @@ import axios from "axios";
 
 const router = express.Router();
 
+// Test route to verify this code is loaded
+router.get("/test", (req, res) => {
+  res.json({ message: "Predict route is loaded!", timestamp: new Date().toISOString() });
+});
+
 // Connects to Python AI service
 router.post("/", async (req, res) => {
   try {
@@ -34,39 +39,21 @@ router.post("/", async (req, res) => {
     }
 
     console.log("🔍 Received health data:", healthData);
+    console.log("📝 Type of healthData:", typeof healthData);
+    console.log("📝 Keys in healthData:", Object.keys(healthData));
 
-    // Transform healthData into symptoms array format expected by the model
-    const symptoms = [];
-    const symptomMapping = {
-      'Body ache': 'body_aches',
-      'Cough': 'cough',
-      'Fatigue': 'fatigue',
-      'Fever': 'fever',
-      'Headache': 'headache',
-      'Runny nose': 'runny_nose',
-      'Shortness of breath': 'shortness_of_breath',
-      'Sore throat': 'sore_throat'
-    };
+    const mlApiUrl = process.env.AI_SERVICE_URL || "https://ml-vxmh.onrender.com";
+    const predictUrl = mlApiUrl.endsWith('/predict') ? mlApiUrl : `${mlApiUrl}/predict`;
 
-    // Extract symptoms from healthData (where value is 1)
-    for (const [key, mappedSymptom] of Object.entries(symptomMapping)) {
-      if (healthData[key] === 1) {
-        symptoms.push(mappedSymptom);
-      }
-    }
+    console.log("📤 Sending to ML API:", predictUrl);
 
-    console.log("🔄 Transformed symptoms:", symptoms);
+    const payload = { healthData };
+    console.log("📦 Payload object:", payload);
+    console.log("📦 Stringified Payload:", JSON.stringify(payload));
 
-    if (symptoms.length === 0) {
-      return res.status(400).json({
-        message: "No symptoms detected in health data"
-      });
-    }
-
-    const response = await axios.post(process.env.AI_SERVICE_URL, {
-      symptoms,
-    }, {
-      timeout: 10000, // 10 second timeout
+    // Send healthData directly to the mock model (it expects {healthData: {...}})
+    const response = await axios.post(predictUrl, payload, {
+      timeout: 15000, // 15 second timeout for cold starts
       headers: {
         'Content-Type': 'application/json'
       }
@@ -108,7 +95,10 @@ router.post("/", async (req, res) => {
 // Health check endpoint
 router.get("/health", async (req, res) => {
   try {
-    const response = await axios.get(`${process.env.AI_SERVICE_URL.replace('/predict', '/health')}`, {
+    const baseUrl = (process.env.AI_SERVICE_URL || "").replace(/\/predict\/?$/, "");
+    const healthUrl = `${baseUrl}/health`;
+
+    const response = await axios.get(healthUrl, {
       timeout: 5000
     });
 
