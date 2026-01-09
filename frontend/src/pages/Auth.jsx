@@ -1,15 +1,17 @@
 import React, { useState, useEffect } from "react";
-import { useSearchParams, useNavigate } from "react-router-dom";
+import { useSearchParams, useNavigate, useLocation } from "react-router-dom";
 import { login, signup } from "../api/auth.js";
 import { GoogleLogin } from "@react-oauth/google";
 
 export default function Auth() {
     const [searchParams] = useSearchParams();
     const navigate = useNavigate();
+    const location = useLocation();
 
     const [isLogin, setIsLogin] = useState(true);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState("");
+    const [infoMessage, setInfoMessage] = useState("");
 
     const [formData, setFormData] = useState({
         name: "",
@@ -19,12 +21,17 @@ export default function Auth() {
     });
 
     // ---------------------------------------------
-    // Auto-detect login/signup from URL
+    // Auto-detect login/signup from URL and check for redirect message
     // ---------------------------------------------
     useEffect(() => {
         const mode = searchParams.get("mode");
         setIsLogin(mode !== "signup");
-    }, [searchParams]);
+
+        // Check if there's a message from redirect (like from Diagnose page)
+        if (location.state?.message) {
+            setInfoMessage(location.state.message);
+        }
+    }, [searchParams, location]);
 
     // ---------------------------------------------
     // Handle input changes
@@ -51,7 +58,11 @@ export default function Auth() {
             if (data.token) {
                 localStorage.setItem("token", data.token);
                 localStorage.setItem("user", JSON.stringify(data.user));
-                navigate("/");
+                // Notify navbar and other components of auth change
+                window.dispatchEvent(new Event('authChange'));
+                // Redirect to the page user came from, or home
+                const redirectTo = location.state?.from || "/";
+                navigate(redirectTo);
             } else {
                 setError(data.message || "Google authentication failed");
             }
@@ -87,7 +98,11 @@ export default function Auth() {
                 if (response.token) {
                     localStorage.setItem("token", response.token);
                     localStorage.setItem("user", JSON.stringify(response.user));
-                    navigate("/");
+                    // Notify navbar and other components of auth change
+                    window.dispatchEvent(new Event('authChange'));
+                    // Redirect to the page user came from, or home
+                    const redirectTo = location.state?.from || "/";
+                    navigate(redirectTo);
                 } else {
                     setError(response.message || "Signup failed");
                 }
@@ -101,7 +116,11 @@ export default function Auth() {
                 if (response.token) {
                     localStorage.setItem("token", response.token);
                     localStorage.setItem("user", JSON.stringify(response.user));
-                    navigate("/");
+                    // Notify navbar and other components of auth change
+                    window.dispatchEvent(new Event('authChange'));
+                    // Redirect to the page user came from, or home
+                    const redirectTo = location.state?.from || "/";
+                    navigate(redirectTo);
                 } else {
                     setError(response.message || "Invalid Email or Password");
                 }
@@ -128,18 +147,16 @@ export default function Auth() {
             <div className="bg-white flex w-full max-w-lg rounded-xl overflow-hidden shadow-sm border">
                 <button
                     onClick={() => setIsLogin(true)}
-                    className={`w-1/2 py-3 font-semibold ${
-                        isLogin ? "bg-[#E8F7F9] text-[#167C85]" : "text-gray-600"
-                    }`}
+                    className={`w-1/2 py-3 font-semibold ${isLogin ? "bg-[#E8F7F9] text-[#167C85]" : "text-gray-600"
+                        }`}
                 >
                     Login
                 </button>
 
                 <button
                     onClick={() => setIsLogin(false)}
-                    className={`w-1/2 py-3 font-semibold ${
-                        !isLogin ? "bg-[#E8F7F9] text-[#167C85]" : "text-gray-600"
-                    }`}
+                    className={`w-1/2 py-3 font-semibold ${!isLogin ? "bg-[#E8F7F9] text-[#167C85]" : "text-gray-600"
+                        }`}
                 >
                     Sign Up
                 </button>
@@ -147,6 +164,13 @@ export default function Auth() {
 
             {/* Card */}
             <div className="bg-white w-full max-w-lg mt-5 p-8 rounded-2xl shadow-lg border">
+
+                {/* Info Message box (for redirects) */}
+                {infoMessage && (
+                    <div className="bg-blue-50 border border-blue-200 text-blue-700 px-4 py-3 rounded-lg mb-4">
+                        ℹ️ {infoMessage}
+                    </div>
+                )}
 
                 {/* Error box */}
                 {error && (

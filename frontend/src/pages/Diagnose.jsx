@@ -1,8 +1,10 @@
 import { useState, useEffect } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { predictDisease, checkServiceHealth } from "../api/predict.js";
+import jsPDF from "jspdf";
 
 const Diagnose = () => {
+  const navigate = useNavigate();
   const [formData, setFormData] = useState({
     Age: '',
     Heart_Rate_bpm: '',
@@ -24,9 +26,32 @@ const Diagnose = () => {
   const [results, setResults] = useState(null);
   const [serviceStatus, setServiceStatus] = useState({ backend: "checking", model_service: "checking" });
   const [error, setError] = useState('');
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [userName, setUserName] = useState('');
+
+  // Check authentication on component mount
+  useEffect(() => {
+    const token = localStorage.getItem('token');
+    const user = localStorage.getItem('user');
+
+    if (!token || !user) {
+      // User not logged in, redirect to auth page
+      navigate('/auth', { state: { from: '/diagnose', message: 'Please login to access the diagnosis feature' } });
+    } else {
+      setIsAuthenticated(true);
+      try {
+        const userData = JSON.parse(user);
+        setUserName(userData.name || userData.email || 'User');
+      } catch (e) {
+        console.error('Error parsing user data:', e);
+      }
+    }
+  }, [navigate]);
 
   // Check service health on component mount
   useEffect(() => {
+    if (!isAuthenticated) return;
+
     const checkHealth = async () => {
       try {
         const health = await checkServiceHealth();
@@ -36,7 +61,7 @@ const Diagnose = () => {
       }
     };
     checkHealth();
-  }, []);
+  }, [isAuthenticated]);
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
@@ -134,9 +159,157 @@ const Diagnose = () => {
   };
 
   const downloadReport = () => {
-    alert("Report download started");
-    // In a real app, generate and download PDF here
+    if (!results || results.length === 0) {
+      alert('No results to download');
+      return;
+    }
+
+    try {
+      // Create new PDF document
+      const doc = new jsPDF();
+      const pageWidth = doc.internal.pageSize.width;
+      const margin = 20;
+      let y = 20;
+
+      // Header
+      doc.setFillColor(19, 61, 62);
+      doc.rect(0, 0, pageWidth, 40, 'F');
+      doc.setTextColor(255, 255, 255);
+      doc.setFontSize(24);
+      doc.text('HealthCheck AI', margin, 20);
+      doc.setFontSize(12);
+      doc.text('Medical Diagnosis Report', margin, 30);
+
+      y = 50;
+      doc.setTextColor(0, 0, 0);
+
+      // Patient Information
+      doc.setFontSize(14);
+      doc.setFont(undefined, 'bold');
+      doc.text('Patient Information', margin, y);
+      y += 10;
+      doc.setFontSize(10);
+      doc.setFont(undefined, 'normal');
+      doc.text(`Name: ${userName}`, margin, y);
+      y += 7;
+      doc.text(`Age: ${formData.Age} years`, margin, y);
+      y += 7;
+      doc.text(`Date: ${new Date().toLocaleDateString()}`, margin, y);
+      y += 7;
+      doc.text(`Time: ${new Date().toLocaleTimeString()}`, margin, y);
+      y += 15;
+
+      // Vital Signs
+      doc.setFontSize(14);
+      doc.setFont(undefined, 'bold');
+      doc.text('Vital Signs', margin, y);
+      y += 10;
+      doc.setFontSize(10);
+      doc.setFont(undefined, 'normal');
+      doc.text(`Heart Rate: ${formData.Heart_Rate_bpm} bpm`, margin, y);
+      y += 7;
+      doc.text(`Body Temperature: ${formData.Body_Temperature_C}°C`, margin, y);
+      y += 7;
+      doc.text(`Oxygen Saturation: ${formData.Oxygen_Saturation_}%`, margin, y);
+      y += 7;
+      doc.text(`Blood Pressure: ${formData.Systolic}/${formData.Diastolic} mmHg`, margin, y);
+      y += 15;
+
+      // Symptoms
+      doc.setFontSize(14);
+      doc.setFont(undefined, 'bold');
+      doc.text('Reported Symptoms', margin, y);
+      y += 10;
+      doc.setFontSize(10);
+      doc.setFont(undefined, 'normal');
+      const symptoms = [];
+      ['Body ache', 'Cough', 'Fatigue', 'Fever', 'Headache', 'Runny nose', 'Shortness of breath', 'Sore throat'].forEach(symptom => {
+        if (formData[symptom] === '1' || formData[symptom] === 1) {
+          symptoms.push(symptom);
+        }
+      });
+      doc.text(symptoms.length > 0 ? symptoms.join(', ') : 'None reported', margin, y, { maxWidth: pageWidth - 2 * margin });
+      y += 15;
+
+      // Diagnosis Results
+      doc.setFontSize(14);
+      doc.setFont(undefined, 'bold');
+      doc.text('AI Diagnosis Results', margin, y);
+      y += 10;
+
+      results.forEach((result, index) => {
+        if (y > 250) {
+          doc.addPage();
+          y = 20;
+        }
+
+        // Disease name and confidence
+        doc.setFontSize(12);
+        doc.setFont(undefined, 'bold');
+        doc.text(`${index + 1}. ${result.disease} (${result.confidence}% confidence)`, margin, y);
+        y += 8;
+
+        // Description
+        doc.setFontSize(10);
+        doc.setFont(undefined, 'normal');
+        doc.text(result.description, margin + 5, y, { maxWidth: pageWidth - 2 * margin - 5 });
+        y += 10;
+
+        // Preventive measures
+        doc.setFont(undefined, 'bold');
+        doc.text('Preventive Measures:', margin + 5, y);
+        y += 7;
+        doc.setFont(undefined, 'normal');
+        result.preventive.forEach((measure, i) => {
+          if (y > 270) {
+            doc.addPage();
+            y = 20;
+          }
+          doc.text(`• ${measure}`, margin + 10, y, { maxWidth: pageWidth - 2 * margin - 10 });
+          y += 7;
+        });
+        y += 5;
+      });
+
+      // Disclaimer
+      if (y > 240) {
+        doc.addPage();
+        y = 20;
+      }
+      y += 10;
+      doc.setFillColor(255, 243, 205);
+      doc.rect(margin, y - 5, pageWidth - 2 * margin, 30, 'F');
+      doc.setFontSize(10);
+      doc.setFont(undefined, 'bold');
+      doc.text('Important Disclaimer:', margin + 5, y + 3);
+      y += 10;
+      doc.setFont(undefined, 'normal');
+      doc.text('This is an AI-based preliminary analysis and should not replace professional medical', margin + 5, y, { maxWidth: pageWidth - 2 * margin - 10 });
+      y += 7;
+      doc.text('advice. Please consult with a healthcare provider for proper diagnosis and treatment.', margin + 5, y, { maxWidth: pageWidth - 2 * margin - 10 });
+
+      // Save PDF
+      const fileName = `HealthCheck_Report_${new Date().getTime()}.pdf`;
+      doc.save(fileName);
+
+      alert('Report downloaded successfully!');
+    } catch (error) {
+      console.error('Error generating PDF:', error);
+      alert('Failed to generate report. Please try again.');
+    }
   };
+
+  // Don't render until authentication is checked
+  if (!isAuthenticated) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#133D3E] mx-auto mb-4"></div>
+          <p className="text-gray-600">Checking authentication...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gray-50 py-12">
@@ -144,7 +317,13 @@ const Diagnose = () => {
         <div className="max-w-4xl mx-auto">
           {/* Header */}
           <div className="text-center mb-8">
-            <h1 className="text-4xl font-bold mb-4 text-[#133D3E]">AI Health Diagnosis</h1>
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex-1"></div>
+              <h1 className="text-4xl font-bold text-[#133D3E] flex-1">AI Health Diagnosis</h1>
+              <div className="flex-1 text-right">
+                <span className="text-sm text-gray-600">Welcome, <strong>{userName}</strong></span>
+              </div>
+            </div>
             <p className="text-lg text-gray-600">
               Select your symptoms to get an AI-powered health analysis
             </p>

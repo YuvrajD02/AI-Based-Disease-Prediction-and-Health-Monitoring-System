@@ -1,6 +1,6 @@
 import axios from "axios";
 
-const API_URL = "https://ml-vxmh.onrender.com";
+const API_URL = import.meta.env.VITE_API_URL || "http://localhost:4000/api";
 
 // Call the backend prediction API
 export const predictDisease = async (healthData) => {
