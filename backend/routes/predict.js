@@ -63,7 +63,15 @@ router.post("/", async (req, res) => {
       });
     }
 
-    const response = await axios.post(process.env.AI_SERVICE_URL, {
+    // Construct prediction URL properly
+    const aiServiceUrl = process.env.AI_SERVICE_URL;
+    const predictUrl = aiServiceUrl.endsWith('/predict')
+      ? aiServiceUrl
+      : `${aiServiceUrl}/predict`;
+
+    console.log(`🤖 Calling ML service at: ${predictUrl}`);
+
+    const response = await axios.post(predictUrl, {
       symptoms,
     }, {
       timeout: 10000, // 10 second timeout
@@ -108,7 +116,15 @@ router.post("/", async (req, res) => {
 // Health check endpoint
 router.get("/health", async (req, res) => {
   try {
-    const response = await axios.get(`${process.env.AI_SERVICE_URL.replace('/predict', '/health')}`, {
+    // Construct health check URL properly
+    const aiServiceUrl = process.env.AI_SERVICE_URL;
+    const healthUrl = aiServiceUrl.endsWith('/predict')
+      ? aiServiceUrl.replace('/predict', '/health')
+      : `${aiServiceUrl}/health`;
+
+    console.log(`🔍 Checking ML service health at: ${healthUrl}`);
+
+    const response = await axios.get(healthUrl, {
       timeout: 5000
     });
 
@@ -117,10 +133,12 @@ router.get("/health", async (req, res) => {
       model_service: response.data
     });
   } catch (error) {
+    console.error(`❌ ML service health check failed: ${error.message}`);
     res.status(503).json({
       backend: "healthy",
       model_service: "unavailable",
-      error: error.message
+      error: error.message,
+      ai_service_url: process.env.AI_SERVICE_URL
     });
   }
 });
